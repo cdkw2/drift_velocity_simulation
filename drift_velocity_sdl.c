@@ -13,7 +13,7 @@
 #define NUM_IONS 50
 #define ELECTRON_RADIUS 3
 #define ION_RADIUS 6
-#define MAX_SPEED 8.0
+#define MAX_SPEED 100.0
 #define COLLISION_DAMPING 0.8
 
 #define CONTROL_PANEL_WIDTH 190
@@ -106,29 +106,38 @@ void handleCollision(Particle* p1, Particle* p2) {
     float distance = sqrt(dx*dx + dy*dy);
     
     if (distance < p1->radius + p2->radius) {
-        float angle = atan2(dy, dx);
-        float sin_angle = sin(angle);
-        float cos_angle = cos(angle);
+        // Calculate normal vector
+        float nx = dx / distance;
+        float ny = dy / distance;
 
-        float vx1 = p1->vx * cos_angle + p1->vy * sin_angle;
-        float vy1 = -p1->vx * sin_angle + p1->vy * cos_angle;
-        float vx2 = p2->vx * cos_angle + p2->vy * sin_angle;
-        float vy2 = -p2->vx * sin_angle + p2->vy * cos_angle;
+        // Calculate relative velocity
+        float dvx = p2->vx - p1->vx;
+        float dvy = p2->vy - p1->vy;
 
-        float temp = vx1;
-        vx1 = vx2 * collisionDamping;
-        vx2 = temp * collisionDamping;
+        // Calculate impulse
+        float impulse = 2.0f * (dvx * nx + dvy * ny) / (1.0f / p1->radius + 1.0f / p2->radius);
 
-        p1->vx = vx1 * cos_angle - vy1 * sin_angle;
-        p1->vy = vx1 * sin_angle + vy1 * cos_angle;
-        p2->vx = vx2 * cos_angle - vy2 * sin_angle;
-        p2->vy = vx2 * sin_angle + vy2 * cos_angle;
+        // Apply impulse to particles
+        p1->vx += impulse * nx / p1->radius;
+        p1->vy += impulse * ny / p1->radius;
+        p2->vx -= impulse * nx / p2->radius;
+        p2->vy -= impulse * ny / p2->radius;
 
+        // Separate particles to prevent overlap
         float overlap = (p1->radius + p2->radius - distance) / 2;
-        p1->x -= overlap * cos_angle;
-        p1->y -= overlap * sin_angle;
-        p2->x += overlap * cos_angle;
-        p2->y += overlap * sin_angle;
+        p1->x -= overlap * nx;
+        p1->y -= overlap * ny;
+        p2->x += overlap * nx;
+        p2->y += overlap * ny;
+
+        // For collisions with ions (assuming ions are stationary)
+        if (p2->radius == ION_RADIUS) {
+            // Randomize electron velocity after collision with ion
+            float speed = sqrt(p1->vx * p1->vx + p1->vy * p1->vy);
+            float angle = ((float)rand() / RAND_MAX) * 2 * M_PI;
+            p1->vx = speed * cos(angle);
+            p1->vy = speed * sin(angle);
+        }
     }
 }
 
